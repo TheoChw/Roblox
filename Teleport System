@@ -1,0 +1,301 @@
+Teleport System in my game Super Hatchers X: https://www.roblox.com/games/12105271994/131k-members-pet-evolve
+
+local Scene_Event = game.ReplicatedStorage.RemoteEvents.Teleport_Player.Teleport_Animation
+
+local Map_Builder_Event = game.ReplicatedStorage.RemoteEvents.Map_Builder
+
+local Player_Teleport_Event = Scene_Event.Parent
+
+
+local Current_Teleport_Path = nil
+
+
+local WalkSpeed = 0
+
+--//Scene Event
+
+local Player = game.Players.LocalPlayer
+
+local Get_players_UI = Player.PlayerGui:WaitForChild("Teleporting_Scene")
+
+local Circle = Get_players_UI.Circle
+
+local CircleSize = Circle.Size
+
+local CurrentScript = nil
+
+
+
+
+
+
+Scene_Event.OnClientInvoke = function(Close)
+	if not Close then
+		local TS = game:GetService("TweenService")
+
+		local Clone_Local_Script = script.Change_Label_Text:Clone()
+
+
+		Clone_Local_Script.Parent = Get_players_UI.TextLabel
+
+
+		Get_players_UI.TextLabel.Text = "[Teleporting]"
+
+
+		CurrentScript = Clone_Local_Script
+
+
+		Clone_Local_Script.Enabled = true
+
+
+		Circle.Size = UDim2.new(10,0,5,0)
+
+		Get_players_UI.Enabled = true
+
+		TS:Create(Circle,TweenInfo.new(0.7),{Size = UDim2.new(0,0,0,0)}):Play()
+
+
+		wait(0.75)
+		
+
+		return true
+
+
+	else
+
+
+		local TS = game:GetService("TweenService")
+
+
+
+		Circle.Size = UDim2.new(0,0,0,0)
+
+		TS:Create(Circle,TweenInfo.new(0.7),{Size = UDim2.new(10,0,5,0)}):Play()
+
+
+
+		wait(0.75)
+
+
+		Current_Teleport_Path:Destroy()
+
+
+		Current_Teleport_Path = nil
+
+
+		Player.Character.Humanoid.WalkSpeed = WalkSpeed
+
+
+		Get_players_UI.Enabled = false
+
+
+
+		CurrentScript:Destroy()
+
+
+
+		return true
+
+
+	end
+end
+
+--//Map_Builder_Event
+
+
+local World_Manager = Player:WaitForChild("World_Manager")
+
+
+
+local In_World = World_Manager.In_World
+
+
+local In_Island = World_Manager.In_Island
+
+
+local World_Before = nil
+
+
+
+for i,v in pairs(game.Workspace.Maps:GetChildren()) do
+
+
+	if v.Name ~= In_World.Value then
+
+
+		v.Parent = game.ReplicatedStorage.Map
+
+
+	else
+		local CreateFolder = Instance.new("Configuration",game.ReplicatedStorage.Map)
+
+
+		CreateFolder.Name = In_World.Value
+
+
+		
+
+		for i2,v2 in pairs(v:GetChildren()) do
+
+
+			if v2.Name ~= In_Island.Value then
+
+
+				v2.Parent = CreateFolder
+			else
+
+
+
+				local Clone_Map = v2:Clone()
+
+
+				
+				Clone_Map.Parent = CreateFolder
+
+
+			end
+
+
+		end
+
+		
+
+		World_Before = In_World.Value
+	end
+end
+
+
+
+Map_Builder_Event.OnClientInvoke = function(World_Name,Map_Name)
+
+
+
+	--//Teleport Player To Place
+
+
+	WalkSpeed = Player.Character.Humanoid.WalkSpeed
+
+
+
+	Player.Character.Humanoid.WalkSpeed = 0
+
+
+
+	
+	local Create_Part = Instance.new("Part",workspace)
+
+
+
+	Create_Part.Anchored = true
+
+
+	Create_Part.Size = Vector3.new(12.612, 1, 12.374)
+
+
+	Create_Part.Position = Vector3.new(-212.402, 1.5, 371.173)
+
+
+
+	
+	Player.Character.HumanoidRootPart.CFrame = Create_Part.CFrame + Vector3.new(0,2,0)
+
+
+	
+	Current_Teleport_Path = Create_Part
+	
+	--//Clear Map
+	
+	for i,v in pairs(game.Workspace.Maps[World_Before]:GetChildren()) do
+
+
+
+		if game.ReplicatedStorage.Map[World_Name] then
+
+
+			game.Workspace.Maps[World_Before]:Destroy()
+
+
+		else
+			Player:Kick("Error: Something went wrong [Map_Builder, 
+
+
+
+TeleportService_Client]. Please notify a developer")
+
+
+
+		end
+
+
+	end
+	
+	--//Build Map
+	local Create_Configuration = Instance.new("Configuration",game.Workspace.Maps)
+
+
+
+	if game.ReplicatedStorage.Map:WaitForChild(World_Name) then
+
+
+
+		Create_Configuration.Name = World_Name
+
+	else
+
+
+		Player:Kick("Error: Wrong given Name. [Map_Builder, TeleportService_Client]")
+	end
+
+
+
+	
+	for i,v in pairs(game.ReplicatedStorage.Map:WaitForChild(World_Name):GetChildren()) do
+
+
+
+		if v.Name == Map_Name then
+
+
+			local Clone_Map = v:Clone()
+
+
+			Clone_Map.Parent = Create_Configuration
+
+
+		else
+			if not game.ReplicatedStorage.Map:WaitForChild(World_Name):FindFirstChild(Map_Name) then
+
+
+
+				Player:Kick("Error: Wrong given Island Name. [Map_Builder, 
+
+
+TeleportService_Client]")
+			end
+
+
+		end
+
+	end
+	
+	return true
+end
+
+Player_Teleport_Event.OnClientInvoke = function(World_Name,Map_Name)
+	local Map = game.Workspace.Maps:WaitForChild(World_Name):WaitForChild(Map_Name)
+	
+	if Map then
+		local Get_Teleportation_Path = game.Workspace.Teleport:WaitForChild(World_Name):WaitForChild(Map_Name)
+		
+		if Get_Teleportation_Path then
+			Player.Character.HumanoidRootPart.CFrame = Get_Teleportation_Path.CFrame
+			
+			return true
+		else
+			Player:Kick("Error: Code: _25sdfDF_ [Teleport_Event, TeleportService_Client]")
+		end
+	else
+		Player:Kick("Error: Code: _124fsa_ [Teleport_Event, TeleportService_Client]")
+	end
+end
+
