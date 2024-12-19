@@ -11,14 +11,20 @@
 --]]
 
 -- 📦 SERVICES 📦
+
 local Players = game:GetService("Players")
+
 local TweenService = game:GetService("TweenService")
+
 local Workspace = game.Workspace
 
 -- 🛠️ SETTINGS 🛠️
 local LOBBY_SPAWN = Vector3.new(0, 5, 0) -- Lobby spawn point
+
 local OBSTACLE_AREA = Vector3.new(50, 5, 0) -- Start of the obstacle course
+
 local FINISH_LINE = Vector3.new(150, 5, 0) -- End of the obstacle course
+
 local POINTS_PER_CHECKPOINT = 10 -- Points for completing checkpoints
 
 -- Create folders for game organization
@@ -30,23 +36,37 @@ Obstacles.Name = "Obstacles"
 
 -- Initialize Points leaderboard
 local function setupLeaderboard(player)
+
     local leaderstats = Instance.new("Folder")
+
     leaderstats.Name = "leaderstats"
+
     leaderstats.Parent = player
 
     local points = Instance.new("IntValue")
+
     points.Name = "Points"
+
     points.Value = 0
+
+
     points.Parent = leaderstats
 end
 
 -- 🔄 CREATE A SPINNING OBSTACLE 🔄
+
 local function createSpinningPart(position, size, spinSpeed)
+
     local part = Instance.new("Part")
+
     part.Size = size
+
     part.Position = position
+
     part.Anchored = true
+
     part.BrickColor = BrickColor.new("Bright red")
+
     part.Parent = Obstacles
 
     -- Rotate the part continuously
@@ -76,10 +96,15 @@ end
 
 -- 🔄 CREATE A SCALING OBSTACLE 🔄
 local function createScalingPart(position, initialSize, scaleMultiplier, scaleTime)
+
     local part = Instance.new("Part")
+
     part.Size = initialSize
+
     part.Position = position
+
     part.Anchored = true
+
     part.BrickColor = BrickColor.new("Bright green")
     part.Parent = Obstacles
 
@@ -147,20 +172,28 @@ buildCourse()
 
 -- END GAME LOGIC
 local function endGame()
+
     print("Game Over! Tallying results...")
+
     local topPlayer = nil
     local topPoints = 0
 
     for _, player in ipairs(Players:GetPlayers()) do
+
         local points = player:FindFirstChild("leaderstats"):FindFirstChild("Points")
+
         if points and points.Value > topPoints then
+
             topPoints = points.Value
             topPlayer = player
+
         end
     end
 
     if topPlayer then
+
         print("Winner: " .. topPlayer.Name .. " with " .. topPoints .. " points!")
+
     else
         print("No winner this time!")
     end
