@@ -1,6 +1,6 @@
 --[[ 
-    Extended Advanced Obby Game Script for Roblox
-    Features:
+
+    This simple game script i made features:
     - Longer and harder obstacle course with 6 sections
     - Advanced dynamic obstacles (spinning, moving, scaling, and disappearing parts)
     - Leaderboard for points with checkpoints
