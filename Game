@@ -1,0 +1,171 @@
+--[[ 
+    Advanced Obby Game Script for Roblox
+    Demonstrates dynamic obstacles, point tracking, and advanced scripting concepts.
+    Created entirely by [YourUsername] for demonstration purposes.
+
+    Features:
+    - Dynamic moving, rotating, and scaling parts
+    - Points system with leaderboards
+    - Advanced use of Roblox API (CFrame, TweenService, touched events, etc.)
+    - Efficient and reusable code structure
+--]]
+
+-- 📦 SERVICES 📦
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Workspace = game.Workspace
+
+-- 🛠️ SETTINGS 🛠️
+local LOBBY_SPAWN = Vector3.new(0, 5, 0) -- Lobby spawn point
+local OBSTACLE_AREA = Vector3.new(50, 5, 0) -- Start of the obstacle course
+local FINISH_LINE = Vector3.new(150, 5, 0) -- End of the obstacle course
+local POINTS_PER_CHECKPOINT = 10 -- Points for completing checkpoints
+
+-- Create folders for game organization
+local Checkpoints = Instance.new("Folder", Workspace)
+Checkpoints.Name = "Checkpoints"
+
+local Obstacles = Instance.new("Folder", Workspace)
+Obstacles.Name = "Obstacles"
+
+-- Initialize Points leaderboard
+local function setupLeaderboard(player)
+    local leaderstats = Instance.new("Folder")
+    leaderstats.Name = "leaderstats"
+    leaderstats.Parent = player
+
+    local points = Instance.new("IntValue")
+    points.Name = "Points"
+    points.Value = 0
+    points.Parent = leaderstats
+end
+
+-- 🔄 CREATE A SPINNING OBSTACLE 🔄
+local function createSpinningPart(position, size, spinSpeed)
+    local part = Instance.new("Part")
+    part.Size = size
+    part.Position = position
+    part.Anchored = true
+    part.BrickColor = BrickColor.new("Bright red")
+    part.Parent = Obstacles
+
+    -- Rotate the part continuously
+    local spinDirection = CFrame.Angles(0, math.rad(spinSpeed), 0)
+    game:GetService("RunService").Stepped:Connect(function()
+        part.CFrame = part.CFrame * spinDirection
+    end)
+    return part
+end
+
+-- 🔄 CREATE A MOVING OBSTACLE 🔄
+local function createMovingPart(startPos, endPos, size, moveTime)
+    local part = Instance.new("Part")
+    part.Size = size
+    part.Position = startPos
+    part.Anchored = true
+    part.BrickColor = BrickColor.new("Bright blue")
+    part.Parent = Obstacles
+
+    -- Tween the part back and forth
+    local tweenInfo = TweenInfo.new(moveTime, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true)
+    local goal = {Position = endPos}
+    local tween = TweenService:Create(part, tweenInfo, goal)
+    tween:Play()
+    return part
+end
+
+-- 🔄 CREATE A SCALING OBSTACLE 🔄
+local function createScalingPart(position, initialSize, scaleMultiplier, scaleTime)
+    local part = Instance.new("Part")
+    part.Size = initialSize
+    part.Position = position
+    part.Anchored = true
+    part.BrickColor = BrickColor.new("Bright green")
+    part.Parent = Obstacles
+
+    -- Tween the size of the part
+    local tweenInfo = TweenInfo.new(scaleTime, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+    local goal = {Size = initialSize * scaleMultiplier}
+    local tween = TweenService:Create(part, tweenInfo, goal)
+    tween:Play()
+    return part
+end
+
+-- ✅ CREATE CHECKPOINTS ✅
+local function createCheckpoint(position, checkpointIndex)
+    local checkpoint = Instance.new("Part")
+    checkpoint.Size = Vector3.new(10, 1, 10)
+    checkpoint.Position = position
+    checkpoint.Anchored = true
+    checkpoint.BrickColor = BrickColor.new("Bright yellow")
+    checkpoint.Name = "Checkpoint" .. checkpointIndex
+    checkpoint.Parent = Checkpoints
+
+    -- Checkpoint logic
+    checkpoint.Touched:Connect(function(hit)
+        local player = Players:GetPlayerFromCharacter(hit.Parent)
+        if player then
+            local points = player:FindFirstChild("leaderstats"):FindFirstChild("Points")
+            if points and checkpoint:GetAttribute("Activated") ~= true then
+                points.Value += POINTS_PER_CHECKPOINT
+                checkpoint:SetAttribute("Activated", true)
+                print(player.Name .. " earned " .. POINTS_PER_CHECKPOINT .. " points!")
+            end
+        end
+    end)
+end
+
+-- 🚀 GAME INITIALIZATION 🚀
+Players.PlayerAdded:Connect(function(player)
+    setupLeaderboard(player)
+    player.CharacterAdded:Connect(function(character)
+        character:MoveTo(LOBBY_SPAWN) -- Move players to lobby on spawn
+    end)
+end)
+
+-- 🛠️ BUILD THE OBSTACLE COURSE 🛠️
+local function buildCourse()
+    -- Spinning obstacles
+    createSpinningPart(Vector3.new(60, 5, 0), Vector3.new(10, 1, 10), 2)
+    createSpinningPart(Vector3.new(80, 5, 0), Vector3.new(10, 1, 10), -3)
+
+    -- Moving obstacles
+    createMovingPart(Vector3.new(100, 5, -5), Vector3.new(100, 5, 5), Vector3.new(10, 1, 10), 2)
+    createMovingPart(Vector3.new(120, 5, -5), Vector3.new(120, 5, 5), Vector3.new(10, 1, 10), 3)
+
+    -- Scaling obstacles
+    createScalingPart(Vector3.new(140, 5, 0), Vector3.new(10, 1, 10), 1.5, 2)
+
+    -- Checkpoints
+    createCheckpoint(Vector3.new(60, 6, 0), 1)
+    createCheckpoint(Vector3.new(100, 6, 0), 2)
+    createCheckpoint(FINISH_LINE, 3)
+end
+
+-- Initialize the course
+buildCourse()
+
+-- END GAME LOGIC
+local function endGame()
+    print("Game Over! Tallying results...")
+    local topPlayer = nil
+    local topPoints = 0
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        local points = player:FindFirstChild("leaderstats"):FindFirstChild("Points")
+        if points and points.Value > topPoints then
+            topPoints = points.Value
+            topPlayer = player
+        end
+    end
+
+    if topPlayer then
+        print("Winner: " .. topPlayer.Name .. " with " .. topPoints .. " points!")
+    else
+        print("No winner this time!")
+    end
+end
+
+-- Run the game
+task.wait(60) -- Run the game for 60 seconds
+endGame()
