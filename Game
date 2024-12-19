@@ -1,34 +1,41 @@
---[[ 
-
-    This simple game script i made features:
-    - Longer and harder obstacle course with 6 sections
-    - Advanced dynamic obstacles (spinning, moving, scaling, and disappearing parts)
-    - Leaderboard for points with checkpoints
-    - Custom player respawn logic at checkpoints
-    - End game logic with winner announcement
+--[[
+    Advanced Obby Game Script
+    Features:
+    - Extended obstacle course (spinning, moving, scaling, and disappearing obstacles)
+    - Leaderboard for player points
+    - Checkpoint-based respawn system
+    - Dynamic timer UI
+    - Modern LuaU coding standards (typed functions, efficient loops, etc.)
 --]]
 
--- 📦 SERVICES 📦
+--// Services
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local Workspace = game.Workspace
 local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+local StarterGui = game:GetService("StarterGui")
 
--- 🛠️ SETTINGS 🛠️
-local START_POSITION = Vector3.new(0, 5, 0) -- Start of the obstacle course
-local FINISH_LINE = Vector3.new(600, 5, 0) -- End of the obstacle course
-local POINTS_PER_CHECKPOINT = 10 -- Points for completing checkpoints
-local RESPAWN_DELAY = 3 -- Time to respawn a player after falling
+--// Constants
+local START_POSITION = Vector3.new(0, 5, 0) -- Player spawn/start position
+local FINISH_POSITION = Vector3.new(600, 5, 0) -- Finish line
+local CHECKPOINT_POINTS = 10 -- Points per checkpoint
+local RESPAWN_DELAY = 3 -- Respawn delay in seconds
+local GAME_DURATION = 300 -- Game duration (5 minutes)
 
--- Organize game objects into folders
-local Checkpoints = Instance.new("Folder", Workspace)
-Checkpoints.Name = "Checkpoints"
+-- UI Settings
+local TIMER_TEXT_TEMPLATE = "Time Remaining: %d:%02d"
 
-local Obstacles = Instance.new("Folder", Workspace)
-Obstacles.Name = "Obstacles"
+-- Folders for game organization
+local CheckpointsFolder = Instance.new("Folder", workspace)
+CheckpointsFolder.Name = "Checkpoints"
 
--- 📊 PLAYER LEADERBOARD 📊
-local function setupLeaderboard(player)
+local ObstaclesFolder = Instance.new("Folder", workspace)
+ObstaclesFolder.Name = "Obstacles"
+
+--// Helper Functions
+
+-- Create a leaderboard for the player
+local function setupLeaderboard(player: Player)
     local leaderstats = Instance.new("Folder")
     leaderstats.Name = "leaderstats"
     leaderstats.Parent = player
@@ -38,194 +45,184 @@ local function setupLeaderboard(player)
     points.Value = 0
     points.Parent = leaderstats
 
-    -- Store checkpoint for respawn logic
-    local currentCheckpoint = Instance.new("Vector3Value")
-    currentCheckpoint.Name = "CurrentCheckpoint"
-    currentCheckpoint.Value = START_POSITION
-    currentCheckpoint.Parent = player
+    -- Track the player's checkpoint
+    local checkpoint = Instance.new("Vector3Value")
+    checkpoint.Name = "CurrentCheckpoint"
+    checkpoint.Value = START_POSITION
+    checkpoint.Parent = player
 end
 
--- 🔄 CREATE SPINNING OBSTACLE 🔄
-local function createSpinningPart(position, size, spinSpeed)
+-- Spinning Obstacle
+local function createSpinningPart(position: Vector3, size: Vector3, spinSpeed: number): Part
     local part = Instance.new("Part")
     part.Size = size
     part.Position = position
     part.Anchored = true
     part.BrickColor = BrickColor.new("Bright red")
     part.Material = Enum.Material.SmoothPlastic
-    part.Parent = Obstacles
+    part.Parent = ObstaclesFolder
 
-    -- Continuously rotate the part
     local spinDirection = CFrame.Angles(0, math.rad(spinSpeed), 0)
-    RunService.Stepped:Connect(function()
+    RunService.Stepped:Connect(function(_, deltaTime)
         part.CFrame = part.CFrame * spinDirection
     end)
 
     return part
 end
 
--- 🔄 CREATE MOVING OBSTACLE 🔄
-local function createMovingPart(startPos, endPos, size, moveTime)
+-- Moving Obstacle
+local function createMovingPart(startPos: Vector3, endPos: Vector3, size: Vector3, moveTime: number): Part
     local part = Instance.new("Part")
     part.Size = size
     part.Position = startPos
     part.Anchored = true
     part.BrickColor = BrickColor.new("Bright blue")
     part.Material = Enum.Material.Neon
-    part.Parent = Obstacles
+    part.Parent = ObstaclesFolder
 
-    -- Tween the part back and forth
     local tweenInfo = TweenInfo.new(moveTime, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true)
-    local goal = {Position = endPos}
-    local tween = TweenService:Create(part, tweenInfo, goal)
+    local tweenGoal = { Position = endPos }
+    local tween = TweenService:Create(part, tweenInfo, tweenGoal)
     tween:Play()
 
     return part
 end
 
--- 🔄 CREATE SCALING OBSTACLE 🔄
-local function createScalingPart(position, initialSize, scaleMultiplier, scaleTime)
+-- Scaling Obstacle
+local function createScalingPart(position: Vector3, size: Vector3, scaleMultiplier: number, scaleTime: number): Part
     local part = Instance.new("Part")
-    part.Size = initialSize
+    part.Size = size
     part.Position = position
     part.Anchored = true
     part.BrickColor = BrickColor.new("Bright green")
     part.Material = Enum.Material.SmoothPlastic
-    part.Parent = Obstacles
+    part.Parent = ObstaclesFolder
 
-    -- Tween the size of the part
     local tweenInfo = TweenInfo.new(scaleTime, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-    local goal = {Size = initialSize * scaleMultiplier}
-    local tween = TweenService:Create(part, tweenInfo, goal)
+    local tweenGoal = { Size = size * scaleMultiplier }
+    local tween = TweenService:Create(part, tweenInfo, tweenGoal)
     tween:Play()
 
     return part
 end
 
--- 🔄 CREATE DISAPPEARING OBSTACLE 🔄
-local function createDisappearingPart(position, size, disappearTime)
+-- Disappearing Obstacle
+local function createDisappearingPart(position: Vector3, size: Vector3, disappearTime: number): Part
     local part = Instance.new("Part")
     part.Size = size
     part.Position = position
     part.Anchored = true
     part.BrickColor = BrickColor.new("Bright orange")
     part.Material = Enum.Material.SmoothPlastic
-    part.Parent = Obstacles
+    part.Parent = ObstaclesFolder
 
-    -- Make the part disappear and reappear periodically
-    while true do
-        wait(disappearTime)
-        part.Transparency = 1
-        part.CanCollide = false
-        wait(disappearTime)
-        part.Transparency = 0
-        part.CanCollide = true
-    end
+    task.spawn(function()
+        while true do
+            part.CanCollide = false
+            part.Transparency = 1
+            task.wait(disappearTime)
+            part.CanCollide = true
+            part.Transparency = 0
+            task.wait(disappearTime)
+        end
+    end)
+
+    return part
 end
 
--- ✅ CREATE CHECKPOINTS ✅
-local function createCheckpoint(position, checkpointIndex)
+-- Checkpoint Logic
+local function createCheckpoint(position: Vector3, index: number)
     local checkpoint = Instance.new("Part")
     checkpoint.Size = Vector3.new(10, 1, 10)
     checkpoint.Position = position
     checkpoint.Anchored = true
     checkpoint.BrickColor = BrickColor.new("Bright yellow")
-    checkpoint.Name = "Checkpoint" .. checkpointIndex
-    checkpoint.Parent = Checkpoints
+    checkpoint.Name = "Checkpoint" .. tostring(index)
+    checkpoint.Parent = CheckpointsFolder
 
-    -- Add checkpoint logic
     checkpoint.Touched:Connect(function(hit)
         local player = Players:GetPlayerFromCharacter(hit.Parent)
-        if player then
-            -- Update the player's current checkpoint
-            local currentCheckpoint = player:FindFirstChild("CurrentCheckpoint")
-            if currentCheckpoint then
-                currentCheckpoint.Value = position
-            end
+        if not player then return end
 
-            -- Award points for reaching the checkpoint
+        local currentCheckpoint = player:FindFirstChild("CurrentCheckpoint")
+        if currentCheckpoint and currentCheckpoint.Value ~= position then
+            currentCheckpoint.Value = position
+
             local points = player:FindFirstChild("leaderstats"):FindFirstChild("Points")
-            if points and checkpoint:GetAttribute("Activated") ~= true then
-                points.Value += POINTS_PER_CHECKPOINT
-                checkpoint:SetAttribute("Activated", true)
-                print(player.Name .. " earned " .. POINTS_PER_CHECKPOINT .. " points!")
+            if points then
+                points.Value += CHECKPOINT_POINTS
             end
         end
     end)
 end
 
--- 🚀 PLAYER RESPAWN LOGIC 🚀
-Players.PlayerAdded:Connect(function(player)
+-- UI Timer Display
+local function displayGameTimer()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "GameTimer"
+    screenGui.Parent = StarterGui
+
+    local timerLabel = Instance.new("TextLabel")
+    timerLabel.Size = UDim2.new(0.25, 0, 0.05, 0)
+    timerLabel.Position = UDim2.new(0.375, 0, 0.02, 0)
+    timerLabel.BackgroundTransparency = 1
+    timerLabel.TextScaled = true
+    timerLabel.Font = Enum.Font.SourceSansBold
+    timerLabel.TextColor3 = Color3.new(1, 1, 1)
+    timerLabel.Text = TIMER_TEXT_TEMPLATE:format(GAME_DURATION // 60, GAME_DURATION % 60)
+    timerLabel.Parent = screenGui
+
+    -- Timer logic
+    task.spawn(function()
+        for i = GAME_DURATION, 0, -1 do
+            timerLabel.Text = TIMER_TEXT_TEMPLATE:format(i // 60, i % 60)
+            task.wait(1)
+        end
+        timerLabel.Text = "Time's Up!"
+    end)
+end
+
+--// Player Management
+Players.PlayerAdded:Connect(function(player: Player)
     setupLeaderboard(player)
 
     player.CharacterAdded:Connect(function(character)
-        -- Respawn the player at their last checkpoint
-        local currentCheckpoint = player:FindFirstChild("CurrentCheckpoint")
-        if currentCheckpoint then
-            wait(RESPAWN_DELAY)
-            character:MoveTo(currentCheckpoint.Value)
+        local checkpoint = player:FindFirstChild("CurrentCheckpoint")
+        if checkpoint then
+            task.wait(RESPAWN_DELAY)
+            character:MoveTo(checkpoint.Value)
         end
     end)
 end)
 
--- 🛠️ BUILD EXTENDED OBSTACLE COURSE 🛠️
-local function buildCourse()
-    -- SECTION 1: Spinning Obstacles
-    createSpinningPart(Vector3.new(20, 5, 0), Vector3.new(10, 1, 10), 2)
-    createSpinningPart(Vector3.new(40, 5, 0), Vector3.new(10, 1, 10), -3)
+--// Obstacle Course
+local function buildObstacleCourse()
+    -- Section 1: Spinning Parts
+    createSpinningPart(Vector3.new(20, 5, 0), Vector3.new(10, 1, 10), 5)
+    createSpinningPart(Vector3.new(40, 5, 0), Vector3.new(10, 1, 10), -5)
     createCheckpoint(Vector3.new(60, 6, 0), 1)
 
-    -- SECTION 2: Moving Platforms
-    createMovingPart(Vector3.new(80, 5, -5), Vector3.new(80, 5, 5), Vector3.new(10, 1, 10), 2)
-    createMovingPart(Vector3.new(100, 5, -5), Vector3.new(100, 5, 5), Vector3.new(10, 1, 10), 3)
-    createCheckpoint(Vector3.new(120, 6, 0), 2)
+    -- Section 2: Moving Platforms
+    createMovingPart(Vector3.new(80, 5, -10), Vector3.new(80, 5, 10), Vector3.new(10, 1, 10), 3)
+    createCheckpoint(Vector3.new(100, 6, 0), 2)
 
-    -- SECTION 3: Scaling Platforms
-    createScalingPart(Vector3.new(140, 5, 0), Vector3.new(10, 1, 10), 1.5, 2)
-    createScalingPart(Vector3.new(160, 5, 0), Vector3.new(10, 1, 10), 2, 3)
-    createCheckpoint(Vector3.new(180, 6, 0), 3)
+    -- Section 3: Scaling Parts
+    createScalingPart(Vector3.new(120, 5, 0), Vector3.new(10, 1, 10), 1.5, 2)
+    createCheckpoint(Vector3.new(140, 6, 0), 3)
 
-    -- SECTION 4: Gaps with Spinning Bars
-    createSpinningPart(Vector3.new(200, 5, 0), Vector3.new(20, 1, 1), 5)
-    createSpinningPart(Vector3.new(230, 5, 0), Vector3.new(20, 1, 1), -5)
-    createCheckpoint(Vector3.new(250, 6, 0), 4)
-
-    -- SECTION 5: Disappearing Platforms
-    createDisappearingPart(Vector3.new(270, 5, 0), Vector3.new(10, 1, 10), 2)
-    createDisappearingPart(Vector3.new(290, 5, 0), Vector3.new(10, 1, 10), 3)
-    createCheckpoint(Vector3.new(310, 6, 0), 5)
-
-    -- SECTION 6: Final Stretch with Mixed Obstacles
-    createMovingPart(Vector3.new(330, 5, -5), Vector3.new(330, 5, 5), Vector3.new(10, 1, 10), 2)
-    createScalingPart(Vector3.new(360, 5, 0), Vector3.new(10, 1, 10), 1.5, 2)
-    createSpinningPart(Vector3.new(390, 5, 0), Vector3.new(10, 1, 10), 4)
-    createCheckpoint(FINISH_LINE, 6)
+    -- Section 4: Disappearing Parts
+    createDisappearingPart(Vector3.new(160, 5, 0), Vector3.new(10, 1, 10), 2)
+    createCheckpoint(Vector3.new(180, 6, 0), 4)
 end
 
--- Build the course
-buildCourse()
+--// Game Start
+local function startGame()
+    print("Game Starting!")
+    displayGameTimer()
+    buildObstacleCourse()
 
--- 🎯 END GAME LOGIC 🎯
-local function endGame()
-    print("Game Over! Tallying results...")
-    local topPlayer = nil
-    local topPoints = 0
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        local points = player:FindFirstChild("leaderstats"):FindFirstChild("Points")
-        if points and points.Value > topPoints then
-            topPoints = points.Value
-            topPlayer = player
-        end
-    end
-
-    if topPlayer then
-        print("Winner: " .. topPlayer.Name .. " with " .. topPoints .. " points!")
-    else
-        print("No winner this time!")
-    end
+    task.wait(GAME_DURATION)
+    print("Game Over! Time's Up!")
 end
 
--- Run the game
-task.wait(180) -- Run the game for 3 minutes
-endGame()
+startGame()
